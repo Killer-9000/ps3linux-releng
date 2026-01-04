@@ -1,5 +1,5 @@
---- ./types.h.orig	2026-01-04 19:17:16.972273000 +0000
-+++ ./types.h	2026-01-04 19:19:07.060149000 +0000
+--- a/arch/powerpc/boot/types.h
++++ b/arch/powerpc/boot/types.h
 @@ -40,6 +40,9 @@
  #define min_t(type, a, b) min(((type) a), ((type) b))
  #define max_t(type, a, b) max(((type) a), ((type) b))
