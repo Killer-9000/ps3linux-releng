@@ -29,4 +29,14 @@ I realize my scripts are pretty basic and my bash is atrocious. I do fully inten
 
 TODO: finish writing my `ps3linux-install.sh` script
 
+### How to use v2
+
+1. Install the required packages to run the scripts.
+ - Fedora; /usr/bin/dnf -y install bc binutils binutils-powerpc64-linux-gnu diffutils g++ gcc gcc-powerpc64-linux-gnu kmod make patch tar wget
+ - Arch; sudo pacman -S bc binutils diffutils gcc kmod make patch tar wget && yay -S powerpc64-linux-gnu-gcc powerpc64-linux-gnu-binutils
+ - Ubuntu; sudo apt-get install bc binutils binutils-powerpc64-linux-gnu diffutils g++ gcc gcc-powerpc64-linux-gnu kmod make patch tar wget
+
+2. Run the `PS3LINUX_create_kernel.1.sh` script to setup the kernel components.
+3. Run the `PS3LINUX_create_chroot.2.sh` script to setup the chroot enviroment.
+
 ## THE MODEL CITIZEN
