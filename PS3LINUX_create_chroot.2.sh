@@ -30,90 +30,104 @@ if [ ! -f "$KERNEL_BUILD_PATH/.kernelbuilt" ]; then
     exit 1
 fi
 
+# Make sure we have a clean directory to work with.
 rm -rf $CHROOT_PATH
 
+# Install the base filesystem.
 call_dnf --exclude=fedora-release install filesystem
 
+# Link the important folders, not mounting them right now since it requires priv.
 ln -s /dev $CHROOT_PATH/dev
 ln -s /proc $CHROOT_PATH/proc
 ln -s /sys $CHROOT_PATH/sys
-mkdir $CHROOT_PATH/run
-mkdir $CHROOT_PATH/tmp
 
+# Create the fstab file for mounting
 touch $CHROOT_PATH/etc/fstab
 
+# Install the dnf package manager.
 call_dnf install dnf
-    
-if [ 0 ]; then
 
-    sed -i 's/enabled=1/enabled=0/g' $CHROOT_PATH/etc/yum.repos.d/fedora-updates.repo
-    cp $(pwd)/resources/ps3linux.repo $CHROOT_PATH/etc/yum.repos.d/ps3linux.repo
-    sed -i 's/ppc64/$basearch/g' $CHROOT_PATH/etc/yum.repos.d/ps3linux.repo
+# Disable the fedora-updates repo?
+sed -i 's/enabled=1/enabled=0/g' $CHROOT_PATH/etc/yum.repos.d/fedora-updates.repo
+# Add the ps3linux repo.
+cp $(pwd)/resources/ps3linux.repo $CHROOT_PATH/etc/yum.repos.d/ps3linux.repo
+# I don't know why this is happening?
+# sed -i 's/ppc64/$basearch/g' $CHROOT_PATH/etc/yum.repos.d/ps3linux.repo
 
-    echo "ps3linux" > $CHROOT_PATH/etc/hostname
-    echo "nameserver 8.8.8.8" > $CHROOT_PATH/etc/resolv.conf
-    echo "nameserver 8.8.4.4" >> $CHROOT_PATH/etc/resolv.conf
+# Set the hostname.
+echo "ps3linux" > $CHROOT_PATH/etc/hostname
 
-    dnf $DNF_INSTALL_OPTS clean all
-    dnf $DNF_INSTALL_OPTS makecache
-    dnf $DNF_INSTALL_OPTS groupinstall core
-    dnf $DNF_INSTALL_OPTS install udisks2-zram nfs-utils bash-completion wget gdisk
-    dnf $DNF_INSTALL_OPTS clean all
+# Add dns servers.
+echo "nameserver 8.8.8.8" > $CHROOT_PATH/etc/resolv.conf
+echo "nameserver 8.8.4.4" >> $CHROOT_PATH/etc/resolv.conf
 
-    rm -f $CHROOT_PATH/etc/yum.repos.d/*.rpmnew
-    mv -f $CHROOT_PATH/etc/nsswitch.conf $CHROOT_PATH/etc/nsswitch.conf.orig
-    mv -f $CHROOT_PATH/etc/nsswitch.conf.rpmnew $CHROOT_PATH/etc/nsswitch.conf
+# Clean, cache, install core and utilites.
+call_dnf clean all
+call_dnf makecache
+call_dnf group install core
+call_dnf install udisks2-zram nfs-utils bash-completion wget gdisk
+call_dnf clean all
 
-    rm -rf $CHROOT_PATH/usr/share/doc
-    rm -rf $CHROOT_PATH/usr/share/man
-    rm -rf $CHROOT_PATH/lib/firmware/*
-    cp -rf $(pwd)/resources/6.0.19 $CHROOT_PATH/lib/modules/
+# Get rid of tmp files.
+rm -f $CHROOT_PATH/etc/yum.repos.d/*.rpmnew
+mv -f $CHROOT_PATH/etc/nsswitch.conf $CHROOT_PATH/etc/nsswitch.conf.orig
+mv -f $CHROOT_PATH/etc/nsswitch.conf.rpmnew $CHROOT_PATH/etc/nsswitch.conf
 
-    cp $(pwd)/resources/10-eth0.network $CHROOT_PATH/etc/systemd/network/10-eth0.network
+# Once again, I don't know why you're doign this, I suppose you use gpt instead of the manuals.
+# rm -rf $CHROOT_PATH/usr/share/doc
+# rm -rf $CHROOT_PATH/usr/share/man
+# rm -rf $CHROOT_PATH/lib/firmware/*
 
-    echo "ps3vram" > $CHROOT_PATH/etc/modules-load.d/ps3vram.conf
-    echo 'KERNEL=="ps3vram", ACTION=="add", RUN+="/sbin/mkswap /dev/ps3vram", RUN+="/sbin/swapon -p 200 /dev/ps3vram"' > $CHROOT_PATH/etc/udev/rules.d/10-ps3vram.rules
-    chmod 0200 $CHROOT_PATH/etc/shadow
-    sed -i '1c\root:$6$cv5wSgU5Qr51VAfB$shVUHbZViYACoKJYSou.rYODvFYemeBErPqWMaEu566QeywZcy/y7Qa0/ZAiz1y/vnTSPuphTCkqlypglOpJX/:20447:0:99999:7:::' $CHROOT_PATH/etc/shadow
-    chmod 0000 $CHROOT_PATH/etc/shadow
-    mkdir $CHROOT_PATH/mnt/target
+# Copy over our kernel modules.
+cp -rf $KERNEL_BUILD_PATH/lib/modules $CHROOT_PATH/lib/modules
 
-    cp $(pwd)/resources/zram-swap.sh $CHROOT_PATH/usr/sbin/zram-swap.sh
-    cp $(pwd)/resources/zram-swap.service $CHROOT_PATH/etc/systemd/system/zram-swap.service
+# Copy over our ethernet network
+cp $(pwd)/resources/10-eth0.network $CHROOT_PATH/etc/systemd/network/10-eth0.network
 
-    cp $(pwd)/resources/ps3linux-install.sh $CHROOT_PATH/usr/sbin/ps3linux-install.sh
+# Setup the vram swap rules and service.
+echo "ps3vram" > $CHROOT_PATH/etc/modules-load.d/ps3vram.conf
+echo 'KERNEL=="ps3vram", ACTION=="add", RUN+="/sbin/mkswap /dev/ps3vram", RUN+="/sbin/swapon -p 200 /dev/ps3vram"' > $CHROOT_PATH/etc/udev/rules.d/10-ps3vram.rules
+cp $(pwd)/resources/zram-swap.sh $CHROOT_PATH/usr/sbin/zram-swap.sh
+cp $(pwd)/resources/zram-swap.service $CHROOT_PATH/etc/systemd/system/zram-swap.service
 
-    chroot $CHROOT_PATH /usr/bin/systemctl mask auth-rpcgss-module.service
-    chroot $CHROOT_PATH /usr/bin/systemctl mask rpc-gssd.service
-    chroot $CHROOT_PATH /usr/bin/systemctl mask systemd-tmpfiles-setup.service
-    chroot $CHROOT_PATH /usr/bin/systemctl mask systemd-update-utmp.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable auditd.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable fedora-import-state.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable fedora-readonly.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable mdmonitor.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable multipathd.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable sssd-secrets.socket
-    chroot $CHROOT_PATH /usr/bin/systemctl disable sssd.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable firewalld.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable dbus-org.fedoraproject.FirewallD1.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable NetworkManager.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable dbus-org.freedesktop.nm-dispatcher.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable dbus-org.freedesktop.NetworkManager.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable NetworkManager-wait-online.service
-    chroot $CHROOT_PATH /usr/bin/systemctl disable dnf-makecache.timer
-    chroot $CHROOT_PATH /usr/bin/systemctl enable systemd-networkd.service
-    chroot $CHROOT_PATH /usr/bin/systemctl enable zram-swap.service
+# I don't what what the shadow file is, but it seems needed.
+chmod 0200 $CHROOT_PATH/etc/shadow
+sed -i '1c\root:$6$cv5wSgU5Qr51VAfB$shVUHbZViYACoKJYSou.rYODvFYemeBErPqWMaEu566QeywZcy/y7Qa0/ZAiz1y/vnTSPuphTCkqlypglOpJX/:20447:0:99999:7:::' $CHROOT_PATH/etc/shadow
+chmod 0000 $CHROOT_PATH/etc/shadow
 
-    chroot $CHROOT_PATH /usr/bin/ssh-keygen -t rsa -N '' -f /etc/ssh/ssh_host_rsa_key
-    chroot $CHROOT_PATH /usr/bin/ssh-keygen -t ecdsa -N '' -f /etc/ssh/ssh_host_ecdsa_key
-    chroot $CHROOT_PATH /usr/bin/ssh-keygen -t ed25519 -N '' -f /etc/ssh/ssh_host_ed25519_key
+# Copy over the install script.
+cp $(pwd)/resources/ps3linux-install.sh $CHROOT_PATH/usr/sbin/ps3linux-install.sh
 
-    umount $CHROOT_PATH/tmp
-    umount $CHROOT_PATH/run
-    umount $CHROOT_PATH/dev/pts
-    umount $CHROOT_PATH/dev
-    umount $CHROOT_PATH/sys
-    umount $CHROOT_PATH/proc
+if [ ! /bin/true ]; then
+
+    # Mask services. Doing so manually so no reliance on systemd.
+    # ln -s $CHROOT_PATH/usr/lib/systemd/system/auth-rpcgss-module.service /dev/null
+    # ln -s $CHROOT_PATH/usr/lib/systemd/system/rpc-gssd.service /dev/null
+    # ln -s $CHROOT_PATH/usr/lib/systemd/system/systemd-tmpfiles-setup.service /dev/null
+    # ln -s $CHROOT_PATH/usr/lib/systemd/system/systemd-update-utmp.service /dev/null
+
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable auditd.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable fedora-import-state.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable fedora-readonly.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable mdmonitor.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable multipathd.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable sssd-secrets.socket
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable sssd.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable firewalld.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable dbus-org.fedoraproject.FirewallD1.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable NetworkManager.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable dbus-org.freedesktop.nm-dispatcher.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable dbus-org.freedesktop.NetworkManager.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable NetworkManager-wait-online.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl disable dnf-makecache.timer
+
+    # chroot $CHROOT_PATH /usr/bin/systemctl enable systemd-networkd.service
+    # chroot $CHROOT_PATH /usr/bin/systemctl enable zram-swap.service
+
+    # I don't think this is needed?
+    # chroot $CHROOT_PATH /usr/bin/ssh-keygen -t rsa -N '' -f /etc/ssh/ssh_host_rsa_key
+    # chroot $CHROOT_PATH /usr/bin/ssh-keygen -t ecdsa -N '' -f /etc/ssh/ssh_host_ecdsa_key
+    # chroot $CHROOT_PATH /usr/bin/ssh-keygen -t ed25519 -N '' -f /etc/ssh/ssh_host_ed25519_key
 
     find $CHROOT_PATH -type f \( -perm -111 -o -name '*.so*' -o -name '*.ko' \) -exec file {} \; | grep 'ELF' | cut -d: -f1 | while read f; do echo "Stripping $f"; powerpc64-linux-gnu-strip --strip-unneeded "$f" || true; done
     find $CHROOT_PATH/usr/lib64 -name '*.a' -delete
