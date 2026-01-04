@@ -19,7 +19,7 @@ DNF_INSTALL_OPTS="-y --use-host-config --forcearch=ppc64 --releasever=28 --disab
 rm -f $KERNEL_BUILD_PATH/.chrootgen
 
 # If we aren't root exit right away, we need root priv for some stuff.
-if [ $(id -u) -eq 0 ]; then
+if [ ! $(id -u) -eq 0 ]; then
     echo "This script requires root privilege to run, try again with sudo."
     exit 1
 fi
