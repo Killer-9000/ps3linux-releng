@@ -70,8 +70,10 @@ call_dnf clean all
 
 # Get rid of tmp files.
 rm -f $CHROOT_PATH/etc/yum.repos.d/*.rpmnew
-mv -f $CHROOT_PATH/etc/nsswitch.conf $CHROOT_PATH/etc/nsswitch.conf.orig
-mv -f $CHROOT_PATH/etc/nsswitch.conf.rpmnew $CHROOT_PATH/etc/nsswitch.conf
+if [ -f $CHROOT_PATH/etc/nsswitch.conf.rpmnew ]; then
+    mv -f $CHROOT_PATH/etc/nsswitch.conf $CHROOT_PATH/etc/nsswitch.conf.orig
+    mv -f $CHROOT_PATH/etc/nsswitch.conf.rpmnew $CHROOT_PATH/etc/nsswitch.conf
+fi
 
 # Once again, I don't know why you're doign this, I suppose you use gpt instead of the manuals.
 # rm -rf $CHROOT_PATH/usr/share/doc
